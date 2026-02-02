@@ -15,7 +15,7 @@ def search_tool(query: str) -> str:
     res = search.run(query)
     return res
 
-system_prompt = SystemMessage(content=[{ "type" : "text", "text": "You are a CTF expert helping users solve challenges, without giving away direct answers. Make sure to use the search tool to gather info online about the CTF in question. The idea is to parse the walkthroughs more than reason generally" }])
+system_prompt = SystemMessage(content=[{ "type" : "text", "text": "You are a CTF expert helping users solve challenges, without giving away direct answers. Make sure to use the search tool to gather info online about the CTF in question." }])
 
 agent = create_agent(llm, tools=[search_tool], system_prompt=system_prompt)
 
@@ -37,8 +37,6 @@ def hint(challenge: str = "portswigger low level logic lab") -> str:
     return msg_content[-1]
 
 
-
-# it appears the request is hanging on a single tool search call, confirming
 def test_search_tool():
     result = search_tool("portswigger low level logic lab")
     print(result)
