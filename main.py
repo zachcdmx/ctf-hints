@@ -3,10 +3,22 @@ from langchain.tools import tool
 from langchain.messages import SystemMessage, HumanMessage
 from langchain.agents import create_agent
 from langchain_community.utilities import GoogleSerperAPIWrapper
+import requests
+
 import gradio as gr
 
 llm = ChatGroq(model="openai/gpt-oss-20b", temperature=0.8)
 search = GoogleSerperAPIWrapper()
+
+
+@tool
+def fetch_ctf_page_description(url: str) -> str:
+    """Fetch the description of a CTF challenge from a given URL."""
+    try:
+        text = requests.get(url).text[:2000]  # Limit to first 2000 characters
+        return text
+    except Exception as e:
+        return str(e)
 
 @tool
 def search_tool(query: str) -> str:
@@ -15,17 +27,19 @@ def search_tool(query: str) -> str:
     res = search.run(query)
     return res
 
-system_prompt = SystemMessage(content=[{ "type" : "text", "text": "You are a CTF expert helping users solve challenges, without giving away direct answers. Make sure to use the search tool to gather info online about the CTF in question." }])
+system_prompt = SystemMessage(content=[{ "type" : "text", "text": "You are a CTF expert helping users solve challenges, without giving away direct answers. Use the fetch_ctf_page_description description tool to accept the url to the CTF challenge description, read the page, and based in that search for the relevant results before giving hints to the user" }])
 
-agent = create_agent(llm, tools=[search_tool], system_prompt=system_prompt)
+agent = create_agent(llm, tools=[search_tool, fetch_ctf_page_description], system_prompt=system_prompt)
 
-def hint(challenge: str = "portswigger low level logic lab") -> str:
+def hint(challenge_url: str) -> str:
     """Get a hint for a CTF challenge."""
-    user_message = HumanMessage(content=[{ "type": "text", "text" : f"I am working on the challenge '{challenge}'. Provide a hint without giving away the answer." }])
+    user_message = HumanMessage(content=[{ "type": "text", "text" : f"I am working on the challenge at the url: '{challenge_url}'. Provide a hint without giving away the answer." }])
     msgs = [user_message]
     # print(" start of event stream FUCK")
     # for event in agent.stream({ "messages": msgs }, stream_mode=["updates"]):
     #    print(" Event:", event)
+    
+
     res = agent.invoke({ "messages": msgs })
     
     msg_content = []
@@ -37,29 +51,14 @@ def hint(challenge: str = "portswigger low level logic lab") -> str:
     return msg_content[-1]
 
 
-def test_search_tool():
-    result = search_tool("portswigger low level logic lab")
-    print(result)
-    return result
-
-
 ui = gr.Interface(
     fn=hint,
     inputs=[
-        gr.Textbox(label="CTF Challenge", placeholder="Enter the name of the CTF challenge..."),
+        gr.Textbox(label="CTF URL", placeholder="Enter the URL of the CTF challenge..."),
     ],
     outputs=gr.Textbox(label="Hint"),
     title="CTF Challenge Hint Generator",
     description="Get hints for CTF challenges without revealing the answers."
-)
-
-
-test_ui = gr.Interface(
-    fn=test_search_tool,
-    inputs=[],
-    outputs=gr.Textbox(label="Search Tool Test Result"),
-    title="Test Search Tool",
-    description="Test the search tool functionality."
 )
 
 if __name__ == "__main__":
